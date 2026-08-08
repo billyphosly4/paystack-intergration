@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Secure payment gateway checkout powered by Paystack, Node.js, Express, and Vanilla JavaScript.">
+  <title>Paystack Payment Gateway Checkout</title>
+  
+  <!-- Modern Typography (Google Fonts - Inter) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- Paystack Inline JavaScript SDK CDN (v2) -->
+  <script src="https://js.paystack.co/v2/inline.js"></script>
+</head>
+<body>
+
+  <main class="checkout-container">
+    <div class="checkout-card">
+      
+      <!-- Card Header -->
+      <header class="card-header">
+        <div class="paystack-badge">
+          <svg class="paystack-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 17L12 22L22 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 12L12 17L22 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span>Secured by Paystack</span>
+        </div>
+        <h1 class="card-title">Complete Your Payment</h1>
+        <p class="card-subtitle">Fast, safe, and encrypted transaction processing</p>
+      </header>
+
+      <!-- Response Alert Banner -->
+      <div id="alert-banner" class="alert alert-hidden" role="alert" aria-live="polite">
+        <div class="alert-icon" id="alert-icon"></div>
+        <div class="alert-content">
+          <h4 class="alert-title" id="alert-title">Notification</h4>
+          <p class="alert-message" id="alert-message"></p>
+        </div>
+        <button type="button" class="alert-close" id="alert-close" aria-label="Close notification">&times;</button>
+      </div>
+
+      <!-- Payment Form -->
+      <form id="payment-form" class="payment-form" novalidate>
+        
+        <!-- Customer Name Field -->
+        <div class="form-group">
+          <label for="name" class="form-label">Full Name</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <input 
+              type="text" 
+              id="name" 
+              name="name" 
+              class="form-input" 
+              placeholder="e.g. Jane Doe" 
+              required
+              autocomplete="name"
+            />
+          </div>
+          <span class="error-msg" id="name-error"></span>
+        </div>
+
+        <!-- Customer Email Field -->
+        <div class="form-group">
+          <label for="email" class="form-label">Email Address</label>
+          <div class="input-wrapper">
+            <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+              <polyline points="22,6 12,13 2,6"></polyline>
+            </svg>
+            <input 
+              type="email" 
+              id="email" 
+              name="email" 
+              class="form-input" 
+              placeholder="e.g. jane.doe@example.com" 
+              required
+              autocomplete="email"
+            />
+          </div>
+          <span class="error-msg" id="email-error"></span>
+        </div>
+
+        <!-- Currency & Amount Field -->
+        <div class="form-row">
+          <div class="form-group flex-1">
+            <label for="currency" class="form-label">Currency</label>
+            <select id="currency" name="currency" class="form-input form-select">
+              <option value="AUTO" selected>Auto (Account Default)</option>
+              <option value="KES">KES (Kenyan Shilling)</option>
+              <option value="NGN">NGN (Nigerian Naira)</option>
+              <option value="USD">USD (US Dollar)</option>
+              <option value="GHS">GHS (Ghanaian Cedi)</option>
+              <option value="ZAR">ZAR (South African Rand)</option>
+            </select>
+          </div>
+
+          <div class="form-group flex-2">
+            <label for="amount" class="form-label">Amount</label>
+            <div class="input-wrapper">
+              <input 
+                type="number" 
+                id="amount" 
+                name="amount" 
+                class="form-input" 
+                placeholder="1000" 
+                min="1" 
+                step="0.01" 
+                required
+              />
+            </div>
+            <span class="error-msg" id="amount-error"></span>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button type="submit" id="submit-btn" class="submit-btn">
+          <span class="btn-spinner hidden" id="btn-spinner"></span>
+          <span class="btn-text" id="btn-text">Pay Now</span>
+        </button>
+
+      </form>
+
+      <!-- Footer Info -->
+      <footer class="card-footer">
+        <p>⚡ Encrypted with 256-bit SSL security. Your card info is never stored on our servers.</p>
+      </footer>
+
+    </div>
+  </main>
+
+  <script src="script.js?v=7"></script>
+</body>
+</html>

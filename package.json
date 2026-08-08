@@ -1,0 +1,24 @@
+{
+  "name": "paystack-integration-demo",
+  "version": "1.0.0",
+  "description": "Paystack Payment Gateway Integration using HTML, CSS, Vanilla JS and Node.js/Express",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "paystack",
+    "payment-gateway",
+    "express",
+    "vanilla-js",
+    "nodejs"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2"
+  }
+}
