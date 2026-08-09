@@ -42,8 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Set UI to Loading State
     setLoadingState(true, 'Initializing...');
 
-    // Dynamic API Base URL detection (supports both port 3000 and VS Code Live Server port 5500)
-    const API_BASE_URL = (window.location.port === '3000') ? '' : 'http://localhost:3000';
+    // Dynamic API Base URL detection (supports Vercel deployment, Express port 3000, and VS Code Live Server)
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const API_BASE_URL = isLocalhost && window.location.port !== '3000' ? 'http://localhost:3000' : '';
 
     try {
       // 3. Request Payment Initialization from Express Backend Server
@@ -129,7 +130,8 @@ document.addEventListener('DOMContentLoaded', () => {
    * Calls the backend to double-check and verify payment status directly with Paystack API
    */
   async function verifyTransactionOnServer(reference) {
-    const API_BASE_URL = (window.location.port === '3000') ? '' : 'http://localhost:3000';
+    const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    const API_BASE_URL = isLocalhost && window.location.port !== '3000' ? 'http://localhost:3000' : '';
     try {
       const response = await fetch(`${API_BASE_URL}/verify-payment/${reference}`);
       const result = await response.json();
