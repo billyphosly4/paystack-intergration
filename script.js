@@ -27,24 +27,19 @@ document.addEventListener('DOMContentLoaded', () => {
     event.preventDefault();
     hideAlert();
 
-    // 1. Client-Side Input Validation
-    const phoneInput = document.getElementById('phone');
     const name = nameInput.value.trim();
     const email = emailInput.value.trim();
-    const phone = phoneInput ? phoneInput.value.trim() : '';
     const amount = parseFloat(amountInput.value.trim());
+    const currency = 'KES';
 
-    const currencySelect = document.getElementById('currency');
-    const currency = currencySelect ? currencySelect.value : 'AUTO';
-
-    if (!validateInputs(name, email, amount, phone, currency)) {
+    if (!validateInputs(name, email, amount, currency)) {
       return;
     }
 
     // 2. Set UI to Loading State
     setLoadingState(true, 'Initializing...');
 
-    // Dynamic API Base URL detection (supports Vercel deployment, Express port 3000, and VS Code Live Server)
+    // Dynamic API Base URL detection
     const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     const API_BASE_URL = isLocalhost && window.location.port !== '3000' ? 'http://localhost:3000' : '';
 
@@ -55,7 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name, email, amount, currency, phone })
+        body: JSON.stringify({ name, email, amount, currency })
       });
 
       const result = await response.json();
@@ -66,12 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const { reference, key, access_code, authorization_url } = result.data;
 
-      // 4. Trigger Paystack Inline SDK Modal with complete parameters & authorization_url fallback
+      if (!key || !access_code || !authorization_url || !reference) {
+        throw new Error('Invalid response from payment server. Missing Paystack initialization data.');
+      }
+
+      // 4. Trigger Paystack Inline SDK Modal
       openPaystackModal({
         key: key,
         email: email,
         amount: Math.round(amount * 100),
-        ref: reference,
+        reference: reference,
         access_code: access_code,
         authorization_url: authorization_url
       });
@@ -86,29 +85,45 @@ document.addEventListener('DOMContentLoaded', () => {
   /**
    * Initializes and opens Paystack Checkout (Uses SDK v2 resumeTransaction with fallback to authorization_url)
    */
-  function openPaystackModal({ key, access_code, authorization_url, ref }) {
+  function openPaystackModal({ key, access_code, authorization_url, reference }) {
     if (typeof PaystackPop !== 'undefined') {
       try {
         const popup = new PaystackPop();
-        
-        // 1. Paystack SDK v2 resumeTransaction using server-generated access_code
-        if (typeof popup.resumeTransaction === 'function') {
-          popup.resumeTransaction(access_code);
-          setLoadingState(false);
-          return;
-        }
 
-        // 2. Paystack SDK v2 newTransaction
-        if (typeof popup.newTransaction === 'function') {
-          popup.newTransaction({
-            key: key,
-            access_code: access_code,
+        if (typeof popup.resumeTransaction === 'function') {
+          popup.resumeTransaction(access_code, {
             onSuccess: (transaction) => {
               setLoadingState(true, 'Verifying Payment...');
-              verifyTransactionOnServer(transaction.reference || ref);
+              verifyTransactionOnServer(transaction.reference || reference);
             },
             onCancel: () => {
               showAlert('info', 'Payment Cancelled', 'You closed the payment window before completion.');
+              setLoadingState(false);
+            },
+            onError: (error) => {
+              console.error('Paystack resumeTransaction error:', error);
+              showAlert('error', 'Payment Error', 'Paystack checkout failed. Please try again.');
+              setLoadingState(false);
+            }
+          });
+          return;
+        }
+
+        if (typeof popup.newTransaction === 'function') {
+          popup.newTransaction({
+            key: key,
+            accessCode: access_code,
+            onSuccess: (transaction) => {
+              setLoadingState(true, 'Verifying Payment...');
+              verifyTransactionOnServer(transaction.reference || reference);
+            },
+            onCancel: () => {
+              showAlert('info', 'Payment Cancelled', 'You closed the payment window before completion.');
+              setLoadingState(false);
+            },
+            onError: (error) => {
+              console.error('Paystack newTransaction error:', error);
+              showAlert('error', 'Payment Error', 'Paystack checkout failed. Please try again.');
               setLoadingState(false);
             }
           });
@@ -166,7 +181,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /**
    * Input Validation Helper
    */
-  function validateInputs(name, email, amount, phone = '', currency = 'AUTO') {
+  function validateInputs(name, email, amount, currency = 'KES') {
     let isValid = true;
     clearFieldErrors();
 
@@ -181,16 +196,10 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    // Require phone number when Mobile Money currency is explicitly selected
-    if ((currency === 'KES' || currency === 'GHS') && (!phone || phone.length < 8)) {
-      showFieldError('phone', `Phone number is required for Mobile Money payments in ${currency}.`);
-      isValid = false;
-    }
-
-    const minAmount = (currency === 'KES') ? 10 : (currency === 'NGN' ? 100 : 10);
+    const minAmount = 10;
 
     if (isNaN(amount) || amount < minAmount) {
-      showFieldError('amount', `Minimum amount allowed for ${currency === 'AUTO' ? 'transactions' : currency} is ${minAmount}.`);
+      showFieldError('amount', `Minimum amount allowed for KES transactions is KSh ${minAmount}.`);
       isValid = false;
     }
 

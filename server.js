@@ -11,6 +11,12 @@ require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY;
+const PAYSTACK_PUBLIC_KEY = process.env.PAYSTACK_PUBLIC_KEY;
+
+if (!PAYSTACK_SECRET_KEY || !PAYSTACK_PUBLIC_KEY) {
+  console.warn('⚠️ Missing Paystack API keys. Create a local .env file and set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY.');
+}
 
 // Middleware
 app.use(cors());
@@ -30,9 +36,8 @@ app.use(express.static(path.join(__dirname)));
  */
 app.post('/pay-paystack', async (req, res) => {
   try {
-    const { name, email, amount, phone } = req.body;
+    const { name, email, amount, currency } = req.body;
 
-    // 1. Server-Side Validation
     if (!name || !email || !amount) {
       return res.status(400).json({
         status: false,
@@ -40,24 +45,24 @@ app.post('/pay-paystack', async (req, res) => {
       });
     }
 
-    const currency = req.body.currency || 'AUTO';
     const parsedAmount = parseFloat(amount);
-    const minAmount = (currency === 'KES') ? 10 : (currency === 'NGN' ? 100 : 10);
-    
+    const minAmount = 10;
+
     if (isNaN(parsedAmount) || parsedAmount < minAmount) {
       return res.status(400).json({
         status: false,
-        message: `Amount must be at least ${minAmount} ${currency === 'AUTO' ? '' : currency}.`
+        message: `Amount must be at least KES ${minAmount} (1000 cents).`
       });
     }
 
-    // 2. Convert amount to Paystack subunit (Kobo/Cents/Pesewas: 1 Unit = 100 Subunits)
-    const amountInKobo = Math.round(parsedAmount * 100);
+    const amountInCents = Math.round(parsedAmount * 100);
+    const reference = `ref_live_${Date.now()}_${Math.floor(Math.random() * 100000)}`;
 
-    // 3. Prepare payload for Paystack API
     const paystackPayload = {
       email: email,
-      amount: amountInKobo,
+      amount: amountInCents,
+      currency: 'KES',
+      reference: reference,
       metadata: {
         custom_fields: [
           {
@@ -69,35 +74,24 @@ app.post('/pay-paystack', async (req, res) => {
       }
     };
 
-    // Attach phone number to metadata if provided (crucial for pre-filling Mobile Money requests)
-    if (phone) {
-      paystackPayload.metadata.phone = phone;
-      paystackPayload.metadata.custom_fields.push({
-        display_name: 'Phone Number',
-        variable_name: 'phone_number',
-        value: phone
+    const secretKey = (PAYSTACK_SECRET_KEY || '').trim();
+    const publicKey = (PAYSTACK_PUBLIC_KEY || '').trim();
+
+    if (!secretKey || !publicKey) {
+      return res.status(500).json({
+        status: false,
+        message: 'Server is missing Paystack API keys. Please check your .env file and set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY.'
       });
     }
 
-    // Attach currency & filter payment channels to prevent invalid channel requests (e.g. Mobile Money on unsupported currencies)
-    if (req.body.currency && req.body.currency !== 'AUTO') {
-      paystackPayload.currency = req.body.currency;
-      
-      if (currency === 'KES' || currency === 'GHS') {
-        paystackPayload.channels = ['card', 'mobile_money'];
-      } else if (currency === 'NGN') {
-        paystackPayload.channels = ['card', 'bank', 'ussd', 'qr', 'bank_transfer'];
-      } else if (currency === 'USD' || currency === 'ZAR') {
-        paystackPayload.channels = ['card'];
-      }
-    }
+    console.log('📡 Sending Paystack Initialize Request:', JSON.stringify(paystackPayload, null, 2));
 
-    // 4. Call Paystack Initialize Endpoint using native fetch
     const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${secretKey}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Node.js/Paystack-Integration)'
       },
       body: JSON.stringify(paystackPayload)
     });
@@ -105,29 +99,36 @@ app.post('/pay-paystack', async (req, res) => {
     const data = await response.json();
 
     if (!response.ok || !data.status) {
+      console.error('❌ Raw Paystack API Error Data:', JSON.stringify(data, null, 2));
+      const isInvalidKey = data.message && data.message.toLowerCase().includes('invalid key');
+      const errorMessage = isInvalidKey
+        ? 'Invalid Paystack Secret Key. Please check your .env file and ensure PAYSTACK_SECRET_KEY is copied correctly from your Paystack Dashboard (sk_live_... or sk_test_...).'
+        : (data.message || 'Failed to initialize Paystack transaction.');
+
       return res.status(response.status || 400).json({
         status: false,
-        message: data.message || 'Failed to initialize Paystack transaction.'
+        message: errorMessage,
+        error_details: data
       });
     }
 
-    // 5. Send transaction details and public key back to client
+    console.log('✅ Paystack Transaction Initialized Successfully! Ref:', reference);
     return res.status(200).json({
       status: true,
       message: 'Transaction initialized successfully.',
       data: {
         authorization_url: data.data.authorization_url,
         access_code: data.data.access_code,
-        reference: data.data.reference,
-        key: process.env.PAYSTACK_PUBLIC_KEY
+        reference: data.data.reference || reference,
+        key: publicKey
       }
     });
-
   } catch (error) {
-    console.error('Error initializing transaction:', error);
+    console.error('❌ Exception during Paystack transaction initialization:', error);
     return res.status(500).json({
       status: false,
-      message: 'Internal server error while initializing transaction.'
+      message: 'Internal server error while initializing transaction.',
+      error: error.message
     });
   }
 });
@@ -142,6 +143,7 @@ app.post('/pay-paystack', async (req, res) => {
 app.get('/verify-payment/:reference', async (req, res) => {
   try {
     const { reference } = req.params;
+    const secretKey = (process.env.PAYSTACK_SECRET_KEY || '').trim();
 
     if (!reference) {
       return res.status(400).json({
@@ -154,8 +156,9 @@ app.get('/verify-payment/:reference', async (req, res) => {
     const response = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${secretKey}`,
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Node.js/Paystack-Integration)'
       }
     });
 
