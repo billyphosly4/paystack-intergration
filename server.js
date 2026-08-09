@@ -40,11 +40,14 @@ app.post('/pay-paystack', async (req, res) => {
       });
     }
 
+    const currency = req.body.currency || 'AUTO';
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+    const minAmount = (currency === 'KES') ? 10 : (currency === 'NGN' ? 100 : 10);
+    
+    if (isNaN(parsedAmount) || parsedAmount < minAmount) {
       return res.status(400).json({
         status: false,
-        message: 'Amount must be a positive number.'
+        message: `Amount must be at least ${minAmount} ${currency === 'AUTO' ? '' : currency}.`
       });
     }
 

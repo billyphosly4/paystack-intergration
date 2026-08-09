@@ -179,8 +179,12 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    if (isNaN(amount) || amount <= 0) {
-      showFieldError('amount', 'Please enter a valid amount greater than 0.');
+    const currencySelect = document.getElementById('currency');
+    const currency = currencySelect ? currencySelect.value : 'AUTO';
+    const minAmount = (currency === 'KES') ? 10 : (currency === 'NGN' ? 100 : 10);
+
+    if (isNaN(amount) || amount < minAmount) {
+      showFieldError('amount', `Minimum amount allowed for ${currency === 'AUTO' ? 'transactions' : currency} is ${minAmount}.`);
       isValid = false;
     }
 
