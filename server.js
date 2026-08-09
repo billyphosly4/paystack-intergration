@@ -80,7 +80,15 @@ app.post('/pay-paystack', async (req, res) => {
     if (!secretKey || !publicKey) {
       return res.status(500).json({
         status: false,
-        message: 'Server is missing Paystack API keys. Please check your .env file and set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY.'
+        message: 'Server is missing Paystack API keys. Please check your environment variables and set PAYSTACK_SECRET_KEY and PAYSTACK_PUBLIC_KEY.'
+      });
+    }
+
+    if (!/^sk_(test|live)_[A-Za-z0-9]+$/.test(secretKey)) {
+      console.error('Paystack secret key format appears invalid:', secretKey.slice(0, 12) + '...');
+      return res.status(500).json({
+        status: false,
+        message: 'Paystack secret key format looks invalid. Ensure PAYSTACK_SECRET_KEY is the secret key from Paystack and not the public key, and that there are no extra spaces.'
       });
     }
 
