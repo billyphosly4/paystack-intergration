@@ -219,6 +219,26 @@ body {
   color: var(--text-label);
 }
 
+.optional-tag {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--text-muted);
+}
+
+.form-hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.form-hint code {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  color: var(--primary-color);
+  font-family: monospace;
+}
+
 .input-wrapper {
   position: relative;
   display: flex;

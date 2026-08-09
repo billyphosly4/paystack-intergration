@@ -28,14 +28,16 @@ document.addEventListener('DOMContentLoaded', () => {
     hideAlert();
 
     // 1. Client-Side Input Validation
+    const phoneInput = document.getElementById('phone');
     const name = nameInput.value.trim();
     const email = emailInput.value.trim();
+    const phone = phoneInput ? phoneInput.value.trim() : '';
     const amount = parseFloat(amountInput.value.trim());
 
     const currencySelect = document.getElementById('currency');
     const currency = currencySelect ? currencySelect.value : 'AUTO';
 
-    if (!validateInputs(name, email, amount)) {
+    if (!validateInputs(name, email, amount, phone, currency)) {
       return;
     }
 
@@ -53,7 +55,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ name, email, amount, currency })
+        body: JSON.stringify({ name, email, amount, currency, phone })
       });
 
       const result = await response.json();
@@ -164,7 +166,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /**
    * Input Validation Helper
    */
-  function validateInputs(name, email, amount) {
+  function validateInputs(name, email, amount, phone = '', currency = 'AUTO') {
     let isValid = true;
     clearFieldErrors();
 
@@ -179,8 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
       isValid = false;
     }
 
-    const currencySelect = document.getElementById('currency');
-    const currency = currencySelect ? currencySelect.value : 'AUTO';
+    // Require phone number when Mobile Money currency is explicitly selected
+    if ((currency === 'KES' || currency === 'GHS') && (!phone || phone.length < 8)) {
+      showFieldError('phone', `Phone number is required for Mobile Money payments in ${currency}.`);
+      isValid = false;
+    }
+
     const minAmount = (currency === 'KES') ? 10 : (currency === 'NGN' ? 100 : 10);
 
     if (isNaN(amount) || amount < minAmount) {
@@ -220,14 +226,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function showFieldError(fieldId, message) {
     const errorSpan = document.getElementById(`${fieldId}-error`);
+    if (!errorSpan) return;
     const groupDiv = errorSpan.closest('.form-group');
     if (errorSpan) errorSpan.textContent = message;
     if (groupDiv) groupDiv.classList.add('has-error');
   }
 
   function clearFieldErrors() {
-    ['name', 'email', 'amount'].forEach(fieldId => {
+    ['name', 'email', 'phone', 'amount'].forEach(fieldId => {
       const errorSpan = document.getElementById(`${fieldId}-error`);
+      if (!errorSpan) return;
       const groupDiv = errorSpan.closest('.form-group');
       if (errorSpan) errorSpan.textContent = '';
       if (groupDiv) groupDiv.classList.remove('has-error');

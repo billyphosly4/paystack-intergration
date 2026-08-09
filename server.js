@@ -30,7 +30,7 @@ app.use(express.static(path.join(__dirname)));
  */
 app.post('/pay-paystack', async (req, res) => {
   try {
-    const { name, email, amount } = req.body;
+    const { name, email, amount, phone } = req.body;
 
     // 1. Server-Side Validation
     if (!name || !email || !amount) {
@@ -51,7 +51,7 @@ app.post('/pay-paystack', async (req, res) => {
       });
     }
 
-    // 2. Convert amount to Paystack subunit (Kobo for NGN: 1 NGN = 100 Kobo)
+    // 2. Convert amount to Paystack subunit (Kobo/Cents/Pesewas: 1 Unit = 100 Subunits)
     const amountInKobo = Math.round(parsedAmount * 100);
 
     // 3. Prepare payload for Paystack API
@@ -69,9 +69,27 @@ app.post('/pay-paystack', async (req, res) => {
       }
     };
 
-    // Attach currency if explicitly specified by client, otherwise let Paystack use account default
+    // Attach phone number to metadata if provided (crucial for pre-filling Mobile Money requests)
+    if (phone) {
+      paystackPayload.metadata.phone = phone;
+      paystackPayload.metadata.custom_fields.push({
+        display_name: 'Phone Number',
+        variable_name: 'phone_number',
+        value: phone
+      });
+    }
+
+    // Attach currency & filter payment channels to prevent invalid channel requests (e.g. Mobile Money on unsupported currencies)
     if (req.body.currency && req.body.currency !== 'AUTO') {
       paystackPayload.currency = req.body.currency;
+      
+      if (currency === 'KES' || currency === 'GHS') {
+        paystackPayload.channels = ['card', 'mobile_money'];
+      } else if (currency === 'NGN') {
+        paystackPayload.channels = ['card', 'bank', 'ussd', 'qr', 'bank_transfer'];
+      } else if (currency === 'USD' || currency === 'ZAR') {
+        paystackPayload.channels = ['card'];
+      }
     }
 
     // 4. Call Paystack Initialize Endpoint using native fetch
